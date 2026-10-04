@@ -6,37 +6,41 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	utils "clickfurnance/utils"
+	config "clickfurnace/config"
+	file "clickfurnace/file"
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "clickfurnance"
+	app.Name = "clickfurnace"
 	app.Usage = "Generate data for ClickHouse"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "config, c",
-			Value: "furnance-config.yml",
-			Usage: "Config to set up clickfurnance",
+			Value: "furnace-config.yml",
+			Usage: "config to set up clickfurnace",
 		},
 		cli.BoolFlag{
 			Name:  "run",
-			Usage: "Run clickfurnance",
+			Usage: "Run clickfurnace",
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
 		run := c.GlobalBool("run")
 		if !run {
-			fmt.Println("Use run flag to launch clickfurnance")
+			fmt.Println("Use run flag to launch clickfurnace")
 			return nil
 		}
-		configName := c.GlobalString("config")
-		if !utils.CheckFileExists(configName) {
-			fmt.Printf("File %s does not exist\n", configName)
+		configigName := c.GlobalString("config")
+		if !file.CheckFileExists(configigName) {
+			fmt.Printf("File %s does not exist\n", configigName)
 			return nil
 		}
-		fmt.Printf("Initialized config %s\n", configName)
+		_, err := config.New(configigName)
+		if err != nil {
+			fmt.Printf("Some error: %v\n", err)
+		}
 		return nil
 	}
 

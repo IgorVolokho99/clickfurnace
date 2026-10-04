@@ -7,8 +7,8 @@ services:
     
     volumes:
       - clickhouse_data:/var/lib/clickhouse
-      - ./config/config.xml:/etc/clickhouse-server/config.d/docker.xml
-      - ./config/users.xml:/etc/clickhouse-server/users.d/docker.xml
+      - ./click_config/config.xml:/etc/clickhouse-server/config.d/docker.xml
+      - ./click_config/users.xml:/etc/clickhouse-server/users.d/docker.xml
     environment:
       CLICKHOUSE_DB: train_db
     ulimits:
