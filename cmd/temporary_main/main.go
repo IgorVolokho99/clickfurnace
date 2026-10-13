@@ -3,13 +3,19 @@ package main
 import (
 	"fmt"
 
+	"clickfurnace/config"
 	"clickfurnace/internal/generator"
 )
 
 func main() {
 	var g generator.Generator
 
-	g = generator.NewTimestampGenerator()
+	g, err := generator.NewRandomGenerator(config.ColumnTypeUInt64, "1", "20")
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
 
 	value := g.Generate()
 
