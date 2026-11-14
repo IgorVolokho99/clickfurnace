@@ -9,33 +9,35 @@ clickhouse:
 table:
   name: events
   columns:
-    - name: timestamp
-      type: DateTime64
-      generator:
-        type: timestamp
+    # - name: timestamp
+    #   type: DateTime64
+    #   generator:
+    #     type: timestamp
+    #     min: 0
+    #     max: 10000000
 
     - name: device_id
-      type: UInt64
+      type: UInt8
       generator:
         type: random
         min: 1
-        max: 1000000
+        max: 20
     
-    - name: temperature
-      type: Float64
-      generator:
-        type: normal
-        mean: 25
-        stddev: 5
+    # - name: temperature
+    #   type: Float64
+    #   generator:
+    #     type: normal
+    #     mean: 25
+    #     stddev: 5
     
-    - name: status
-      type: String
-      generator:
-        type: choice
-        values:
-          - OK
-          - WARNING
-          - ERROR
+    # - name: status
+    #   type: String
+    #   generator:
+    #     type: choice
+    #     values:
+    #       - OK
+    #       - WARNING
+    #       - ERROR
 
 workload:
   rate: 100000

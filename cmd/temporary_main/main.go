@@ -3,22 +3,19 @@ package main
 import (
 	"fmt"
 
-	"clickfurnace/config"
 	"clickfurnace/internal/generator"
 )
 
 func main() {
 	var g generator.Generator
 
-	g, err := generator.NewRandomGenerator(config.ColumnTypeUInt64, "1", "20")
+	g = generator.NewRandomIntegerGenerator(
+		1,
+		10,
+	)
 
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
+	for i := 0; i < 10; i++ {
+		value := g.Generate()
+		fmt.Printf("%T: %v\n", value, value)
 	}
-
-	value := g.Generate()
-
-	fmt.Printf("value: %v\n", value)
-	fmt.Printf("type:  %T\n", value)
 }

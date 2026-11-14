@@ -37,8 +37,8 @@ type GeneratorConfiguration struct {
 	Type GeneratorType `yaml:"type"`
 
 	// random
-	Min *float64 `yaml:"min,omitempty"`
-	Max *float64 `yaml:"max,omitempty"`
+	Min *yaml.Node `yaml:"min,omitempty"`
+	Max *yaml.Node `yaml:"max,omitempty"`
 
 	// normal
 	Mean   *float64 `yaml:"mean,omitempty"`
@@ -114,42 +114,53 @@ func (c Config) validate() error {
 		return fmt.Errorf("unsupported config version: %q", c.Version)
 	}
 
-	if c.ClickHouse.Host == "" {
+	if err := c.ClickHouse.validate(); err != nil {
+		return err
+	}
+
+	if err := c.Table.validate(); err != nil {
+		return err
+	}
+
+	if err := c.Workload.validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c ClickHouseConfiguration) validate() error {
+	if c.Host == "" {
 		return fmt.Errorf("clickhouse.host must not be empty")
 	}
 
-	if c.ClickHouse.Port == 0 { // todo how to check port correctly
+	if c.Port == 0 {
 		return fmt.Errorf("clickhouse.port must be greater than 0")
 	}
 
-	if c.ClickHouse.Database == "" {
+	if c.Database == "" {
 		return fmt.Errorf("clickhouse.database must not be empty")
 	}
 
-	if c.Table.Name == "" {
-		return fmt.Errorf("table.name must not be empty")
-	}
+	return nil
+}
 
-	if len(c.Table.Columns) == 0 {
-		return fmt.Errorf("table.columns must not be empty")
-	}
-
-	if c.Workload.Rate <= 0 {
+func (w WorkloadConfiguration) validate() error {
+	if w.Rate <= 0 {
 		return fmt.Errorf("workload.rate must be greater than 0")
 	}
 
-	if c.Workload.BatchSize <= 0 {
+	if w.BatchSize <= 0 {
 		return fmt.Errorf("workload.batch_size must be greater than 0")
 	}
 
-	if c.Workload.Workers <= 0 {
+	if w.Workers <= 0 {
 		return fmt.Errorf("workload.workers must be greater than 0")
 	}
 
-	if c.Workload.Duration <= 0 {
+	if w.Duration <= 0 {
 		return fmt.Errorf("workload.duration must be greater than 0")
 	}
-
 	return nil
 }
 
@@ -164,7 +175,12 @@ func (t TableConfiguration) validate() error {
 
 	for i, column := range t.Columns {
 		if err := column.validate(); err != nil {
-			return fmt.Errorf("table.columns[%d]: %w", i, err)
+			return fmt.Errorf(
+				"table.columns[%d] (%s): %w",
+				i,
+				column.Name,
+				err,
+			)
 		}
 	}
 	return nil
@@ -175,16 +191,12 @@ func (c ColumnConfiguration) validate() error {
 		return fmt.Errorf("name must not be empty")
 	}
 
-	if c.ColumnType == "" {
-		return fmt.Errorf("type must not be empty")
-	}
-
-	if err := c.Generator.validate(); err != nil {
-		return fmt.Errorf("generator: %w", err)
+	if err := c.ColumnType.validate(); err != nil {
+		return err
 	}
 
 	if err := c.validateGeneratorCompatibility(); err != nil {
-		return nil
+		return err
 	}
 
 	return nil
@@ -192,104 +204,54 @@ func (c ColumnConfiguration) validate() error {
 
 func (c ColumnConfiguration) validateGeneratorCompatibility() error {
 	switch c.Generator.Type {
-	case GeneratorTypeTimestamp:
-		switch c.ColumnType {
-		case ColumnTypeDateTime, ColumnTypeDateTime64:
-			return nil
-		}
 
 	case GeneratorTypeRandom:
-		switch c.ColumnType {
-		case ColumnTypeUInt8,
-			ColumnTypeUInt16,
-			ColumnTypeUInt32,
-			ColumnTypeUInt64,
-			ColumnTypeInt8,
-			ColumnTypeInt16,
-			ColumnTypeInt32,
-			ColumnTypeInt64,
-			ColumnTypeFloat32,
-			ColumnTypeFloat64:
-			return nil
+		if c.Generator.Min == nil {
+			return fmt.Errorf("random generator requires min")
 		}
 
-	case GeneratorTypeNormal:
-		switch c.ColumnType {
-		case ColumnTypeFloat32, ColumnTypeFloat64:
-			return nil
+		if c.Generator.Max == nil {
+			return fmt.Errorf("random generator requires max")
 		}
+		switch c.ColumnType {
+		case ColumnTypeUInt8:
+			var minValue, maxValue uint8
+			if err := c.Generator.Min.Decode(&minValue); err != nil {
+				return fmt.Errorf("invalid min for UInt8: %w", err)
+			}
 
-	case GeneratorTypeChoice:
-		if c.ColumnType == ColumnTypeString {
+			if err := c.Generator.Max.Decode(&maxValue); err != nil {
+				return fmt.Errorf("invalid max for UInt8: %w", err)
+			}
+			if minValue >= maxValue {
+				return fmt.Errorf(
+					"random generator requires min < max, got min=%d max=%d",
+					minValue,
+					maxValue,
+				)
+			}
+			return nil
+		case ColumnTypeInt8:
+			var minValue, maxValue int8
+			if err := c.Generator.Min.Decode(&minValue); err != nil {
+				return fmt.Errorf("invalid min for Int8: %w", err)
+			}
+
+			if err := c.Generator.Max.Decode(&maxValue); err != nil {
+				return fmt.Errorf("invalid max for Int8: %w", err)
+			}
+			if minValue >= maxValue {
+				return fmt.Errorf(
+					"random generator requires min < max, got min=%d max=%d",
+					minValue,
+					maxValue,
+				)
+			}
 			return nil
 		}
 	}
-
 	return fmt.Errorf(
-		"generator %q is not compatible with column type %q",
+		"unsupported generator type: %w",
 		c.Generator.Type,
-		c.ColumnType,
 	)
-}
-
-func (g GeneratorConfiguration) validate() error {
-	switch g.Type {
-	case "timestamp":
-		return nil
-	case "random":
-		return g.validateRandom()
-	case "normal":
-		return g.validateNormal()
-	case "choice":
-		return g.validateChoice()
-	default:
-		return fmt.Errorf("unsupported generator time: %q", g.Type)
-	}
-}
-
-func (g GeneratorConfiguration) validateRandom() error {
-	if g.Min == nil {
-		return fmt.Errorf("random generator requires min")
-	}
-
-	if g.Max == nil {
-		return fmt.Errorf("random generator requires max")
-	}
-
-	if *g.Min >= *g.Max {
-		return fmt.Errorf(
-			"random generator requires min < max, got min=%v max=%v",
-			*g.Min,
-			*g.Max,
-		)
-	}
-
-	return nil
-}
-
-func (g GeneratorConfiguration) validateNormal() error {
-	if g.Mean == nil {
-		return fmt.Errorf("normal generator requires mean")
-	}
-
-	if g.Stddev == nil {
-		return fmt.Errorf("normal generator requires stddev")
-	}
-
-	if *g.Stddev <= 0 {
-		return fmt.Errorf(
-			"normal generator requires stddev > 0, got %v",
-			*g.Stddev,
-		)
-	}
-
-	return nil
-}
-
-func (g GeneratorConfiguration) validateChoice() error {
-	if len(g.Values) == 0 {
-		return fmt.Errorf("choice generator requires at least one value")
-	}
-
-	return nil
 }
