@@ -1,6 +1,9 @@
 package generator
 
-import "math/rand/v2"
+import (
+	"math/rand/v2"
+	"strconv"
+)
 
 type RandomIntegerGenerator struct {
 	minValue int64
@@ -18,6 +21,7 @@ func NewRandomIntegerGenerator(
 	}
 }
 
-func (g *RandomIntegerGenerator) Generate() any {
-	return int(g.minValue) + rand.IntN(int(g.maxValue)-int(g.minValue)+1)
+func (g *RandomIntegerGenerator) Generate() string {
+	num := int(g.minValue) + rand.IntN(int(g.maxValue)-int(g.minValue)+1)
+	return strconv.Itoa(num)
 }

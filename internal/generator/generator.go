@@ -1,5 +1,5 @@
 package generator
 
 type Generator interface {
-	Generate() any
+	Generate() string
 }
